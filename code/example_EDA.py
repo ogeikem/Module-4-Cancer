@@ -100,6 +100,11 @@ plt.title("MYC and EGFR Expression in BRCA Samples")
 plt.show()
 
 # %%
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# %%
 # creating the subset of desired genes for tumor-promoting inflammation in the form of a list
 hallmarks_data = pd.read_table(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\Menyhart_JPA_CancerHallmarks_core.txt", header = None, index_col = 0)
 desired_gene_list = list(hallmarks_data.loc["TUMOR-PROMOTING INFLAMMATION"])
