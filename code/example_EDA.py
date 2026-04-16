@@ -4,6 +4,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.decomposition import PCA
+
 # %%
 # Load the data
 ####################################################
@@ -103,9 +105,59 @@ plt.show()
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.decomposition import PCA
 
 # %%
-# creating the subset of desired genes for tumor-promoting inflammation in the form of a list
-hallmarks_data = pd.read_table(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\Menyhart_JPA_CancerHallmarks_core.txt", header = None, index_col = 0)
-desired_gene_list = list(hallmarks_data.loc["TUMOR-PROMOTING INFLAMMATION"])
-print(desired_gene_list)
+
+hallmarks_data = pd.read_table(
+    r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\Menyhart_JPA_CancerHallmarks_core.txt",
+    header=None,
+    index_col=0
+)
+
+desired_gene_list = list(
+    hallmarks_data.loc["TUMOR-PROMOTING INFLAMMATION"].dropna()
+)
+
+data = pd.read_csv(
+    r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv",
+    index_col=0
+)
+
+filtered_genes = [g for g in desired_gene_list if g in data.index]
+
+gene_data = data.loc[filtered_genes]
+
+X = gene_data.T
+
+X.index = X.index.astype(str).str.strip()
+
+X = X.apply(pd.to_numeric, errors="coerce")
+X = X.dropna(axis=1, how="all")
+
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X)
+
+pca_df = pd.DataFrame(
+    X_pca,
+    index=X.index,
+    columns=["PC1", "PC2"]
+)
+
+plt.figure(figsize=(8,6))
+
+sns.scatterplot(
+    x=pca_df["PC1"],
+    y=pca_df["PC2"],
+    s=60
+)
+
+plt.title("PCA: Tumor-Promoting Inflammation Signature")
+plt.xlabel("PC1")
+plt.ylabel("PC2")
+
+plt.show()
+
+
+# %%
