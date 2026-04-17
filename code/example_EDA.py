@@ -123,6 +123,10 @@ data = pd.read_csv(
     r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv",
     index_col=0
 )
+metadata = pd.read_csv(
+    r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_metadata.csv",
+    index_col=0       
+)
 
 filtered_genes = [g for g in desired_gene_list if g in data.index]
 
@@ -144,19 +148,28 @@ pca_df = pd.DataFrame(
     index=X.index,
     columns=["PC1", "PC2"]
 )
+pca_df = pca_df.join(metadata["cancer_type"], how="left")
 
 plt.figure(figsize=(8,6))
 
 sns.scatterplot(
     x=pca_df["PC1"],
     y=pca_df["PC2"],
+    hue=pca_df["cancer_type"],
+    palette= "tab20",
     s=60
 )
 
 plt.title("PCA: Tumor-Promoting Inflammation Signature")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
-
+plt.legend(
+    title="Cancer Type",
+    bbox_to_anchor=(1.05, 1),
+    loc="upper left",
+    fontsize=8
+)
+plt.tight_layout()
 plt.show()
 
 
