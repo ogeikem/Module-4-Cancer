@@ -148,14 +148,14 @@ pca_df = pd.DataFrame(
     index=X.index,
     columns=["PC1", "PC2"]
 )
-pca_df = pca_df.join(metadata["cancer_type"], how="left")
+pca_df = pca_df.join(metadata["ajcc_pathologic_tumor_stage"], how="left")
 
 plt.figure(figsize=(8,6))
 
 sns.scatterplot(
     x=pca_df["PC1"],
     y=pca_df["PC2"],
-    hue=pca_df["cancer_type"],
+    hue=pca_df["ajcc_pathologic_tumor_stage"],
     palette= "tab20",
     s=60
 )
@@ -164,7 +164,7 @@ plt.title("PCA: Tumor-Promoting Inflammation Signature")
 plt.xlabel("PC1")
 plt.ylabel("PC2")
 plt.legend(
-    title="Cancer Type",
+    title="Tumor Stage",
     bbox_to_anchor=(1.05, 1),
     loc="upper left",
     fontsize=8
