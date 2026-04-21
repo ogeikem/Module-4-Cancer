@@ -71,5 +71,14 @@ print(dt_model.score(X, y))
 # %% PLOT DECISION TREE
 plot_tree(dt_model, feature_names=[
           feature_1, feature_2], class_names=cancer.target_names, filled=True)
-# %% TRY TO BUILD A BETTER CLASSIFIER BY PICKING BETTER FEATURES!
-# to do this, you can loop over all pairs of features in the dataset
+# %% 
+# Classification of our data set using the decision tree
+
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+
+# %%
