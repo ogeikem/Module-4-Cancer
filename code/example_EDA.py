@@ -101,6 +101,7 @@ from sklearn.decomposition import PCA
 # plt.title("MYC and EGFR Expression in BRCA Samples")
 # plt.show()
 
+
 # %%
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -124,14 +125,17 @@ desired_gene_list = list(
     hallmarks_data.loc["TUMOR-PROMOTING INFLAMMATION"].dropna()
 )
 
+# there was an issue present intially: Mistake was to use the validation data set intead of the training data set for the PCA and UMAP analyses, which caused a mismatch between the metadata and the gene expression data. 
+# The solution was to switch to the training data set for both the gene expression data and the metadata, ensuring that they are aligned and compatible for analysis. This is a common issue when working with multiple datasets, and it's crucial to ensure that the samples in the gene expression data correspond to the samples in the metadata for accurate analysis and visualization.
+# using the same data source for varaibles data and metadata; the file sourced is TRAINING_SET_GSE62944_metadata.csv, and this is done in order to just start "training the model" so that we can later apply it to Validation_Set data and finally Test_Set data. 
 data = pd.read_csv(
-    #r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv"
-    r"C:\Users\kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv",
+    #r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\TRAINING_SET_GSE62944_subsample_log2TPM.csv" -- This is my partner's respective path for reading the training set data
+    r"C:\Users\Kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\TRAINING_SET_GSE62944_subsample_log2TPM.csv",
     index_col=0
 )
 metadata = pd.read_csv(
-    #r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_metadata.csv"
-    r"C:\Users\kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\VALIDATION_SET_GSE62944_metadata.csv",
+    #r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\TRAINING_SET_GSE62944_metadata.csv" -- This is my partner's respective path for reading the training set metadata
+    r"C:\Users\Kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\TRAINING_SET_GSE62944_metadata.csv",
     index_col=0       
 )
 
@@ -273,4 +277,172 @@ plt.tight_layout()
 plt.show()
 # %%
 
-# this is just test code for my laptop (Kidus -- computer issue)
+
+# %%
+# SETUP FOR REGRESSION
+# We already have:
+#   X  = training gene expression (from PCA code previously) --- This will all be linked within Juypter Notebook
+#   metadata = training metadata (from PCA code previously) --- all again lined up within the Jupyter Notebook
+# We will now need to define: 
+#   X_train, train_metadata, X_val, val_metadata -- This is for the training and validation datasets, which we will use for training and evaluating our regression model. 
+# We will load the validation data and metadata, align them with the training data, and then proceed with the regression analysis.
+
+# Rename training data (from your PCA section)
+X_train = X
+train_metadata = metadata
+
+# Align training metadata
+train_metadata.index = train_metadata.index.astype(str).str.strip()
+X_train.index = X_train.index.astype(str).str.strip()
+train_metadata = train_metadata.reindex(X_train.index)
+
+# %%
+# Load VALIDATION expression + metadata
+
+val_data = pd.read_csv(
+    r"C:\Users\Kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv",
+    index_col=0
+)
+
+val_metadata = pd.read_csv(
+    r"C:\Users\Kidus\OneDrive\Desktop\Computational BME\Module 04\Module-4-Cancer\data\VALIDATION_SET_GSE62944_metadata.csv",
+    index_col=0
+)
+
+# Clean indices
+val_data.index = val_data.index.astype(str).str.strip()
+val_data.columns = val_data.columns.astype(str).str.strip()
+val_metadata.index = val_metadata.index.astype(str).str.strip()
+
+# Build X_val using SAME genes as training
+X_val = val_data.loc[filtered_genes].T
+X_val.index = X_val.index.astype(str).str.strip()
+
+# Convert to numeric + align columns
+X_val = X_val.apply(pd.to_numeric, errors="coerce")
+X_val = X_val[X_train.columns]
+
+# Fill missing values using training mean
+X_val = X_val.fillna(X_train.mean())
+
+# Align validation metadata
+val_metadata = val_metadata.reindex(X_val.index)
+
+
+# Regression: 
+
+from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_absolute_error
+import matplotlib.pyplot as plt
+import numpy as np
+
+# %%
+# STEP 1 — Map tumor stage strings → numeric values
+# --- We convert categorical stages into numbers so regression can work
+# =============================================================================
+
+stage_map = {
+    "Stage I": 1, "Stage IA": 1, "Stage IB": 1, "Stage IC": 1,
+    "Stage II": 2, "Stage IIA": 2, "Stage IIB": 2, "Stage IIC": 2,
+    "Stage III": 3, "Stage IIIA": 3, "Stage IIIB": 3, "Stage IIIC": 3,
+    "Stage IV": 4, "Stage IVA": 4, "Stage IVB": 4, "Stage IVC": 4
+}
+
+# Extract target variables (y values)
+y_train = train_metadata["ajcc_pathologic_tumor_stage"].map(stage_map)
+y_val   = val_metadata["ajcc_pathologic_tumor_stage"].map(stage_map)
+
+# Remove samples where stage is missing
+train_mask = y_train.notna()
+val_mask   = y_val.notna()
+
+X_train_clean = X_train.loc[train_mask]
+y_train_clean = y_train.loc[train_mask]
+
+X_val_clean = X_val.loc[val_mask]
+y_val_clean = y_val.loc[val_mask]
+
+print("Training samples used:", X_train_clean.shape[0])
+print("Validation samples used:", X_val_clean.shape[0])
+
+# %%
+# =============================================================================
+# STEP 2 — PCA for dimensionality reduction
+# WHY: we have many genes → PCA compresses them into fewer features (PCs)
+
+# PCA finds new features (PCs) that capture most of the variance in the data
+# We choose n_components=10 to keep the top 10 PCs, which should capture most of the inflammation-related variation
+pca = PCA(n_components=10, random_state=42)
+
+# Fit PCA ONLY on training data
+X_train_pca = pca.fit_transform(X_train_clean)
+
+# Apply SAME PCA transformation to validation data
+X_val_pca = pca.transform(X_val_clean)
+
+print("Variance explained by 10 PCs:",
+      pca.explained_variance_ratio_.sum())
+
+# %%
+# STEP 3 — Train linear regression model
+# Model learns relationship: tumor stage corresponds to the combination of PCA features
+
+reg_model = LinearRegression()
+
+# Fit model using training data
+reg_model.fit(X_train_pca, y_train_clean)
+
+# Predict tumor stage for both datasets
+y_train_pred = reg_model.predict(X_train_pca)
+y_val_pred   = reg_model.predict(X_val_pca)
+
+# %%
+# =============================================================================
+# STEP 4 — Evaluate model performance
+# =============================================================================
+
+# R²: how well predictions match actual values
+train_r2 = r2_score(y_train_clean, y_train_pred)
+val_r2   = r2_score(y_val_clean, y_val_pred)
+
+# MAE: average prediction error in stage units
+train_mae = mean_absolute_error(y_train_clean, y_train_pred)
+val_mae   = mean_absolute_error(y_val_clean, y_val_pred)
+
+print("\n--- REGRESSION RESULTS ---")
+print(f"Training R²:     {train_r2:.3f}")
+print(f"Validation R²:   {val_r2:.3f}")
+print(f"Training MAE:    {train_mae:.3f}")
+print(f"Validation MAE:  {val_mae:.3f}")
+
+# %%
+# STEP 5 — Visualization
+# Plot predicted vs actual tumor stage for validation set
+
+plt.figure(figsize=(6,5))
+
+# Scatter plot of predictions
+plt.scatter(
+    y_val_clean,
+    y_val_pred,
+    alpha=0.6
+)
+
+# Perfect prediction reference line
+plt.plot(
+    [1, 4],
+    [1, 4],
+    "r--",
+    label="Perfect prediction"
+)
+
+plt.xlabel("Actual tumor stage")
+plt.ylabel("Predicted tumor stage")
+plt.title(
+    f"Validation Results\nR² = {val_r2:.3f}, MAE = {val_mae:.3f}"
+)
+plt.xticks([1,2,3,4])
+plt.legend()
+plt.tight_layout()
+plt.show()
