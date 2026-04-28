@@ -95,6 +95,10 @@ desired_gene_list = list(
 )
 
 # %%
+# load expression data and metadata for the training set
+training_data = pd.read_csv(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\TRAINING_SET_GSE62944_subsample_log2TPM.csv", index_col=0)
+training_meta = pd.read_csv(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\TRAINING_SET_GSE62944_metadata.csv", index_col=0)
+
 # load expression data and metadata for the validation set
 val_data = pd.read_csv(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_subsample_log2TPM.csv", index_col=0)
 val_meta = pd.read_csv(r"C:\Users\ogeik\OneDrive\Desktop\BME 2315\Module-4-Cancer\data\VALIDATION_SET_GSE62944_metadata.csv", index_col=0)
@@ -107,16 +111,20 @@ def prepare_features(data_df, meta_df, gene_list):
     y = meta_df.loc[X.index, "cancer_type"] #match each patient in X with its cancer type label from meta_df
     return X, y
 
-X, y = prepare_features(val_data, val_meta, desired_gene_list) # Prepare features and labels
+X_train, y_train = prepare_features(training_data, training_meta, desired_gene_list) # Prepare training features and labels
+X_val, y_val = prepare_features(val_data, val_meta, desired_gene_list) # Prepare validation features and labels
 
 dt_model = DecisionTreeClassifier(max_depth=5) # initialize the decision tree model with a maximum depth of 5
-dt_model.fit(X, y) # Fit the model to the data
+dt_model.fit(X_train, y_train) # Fit the model to the TRAINING data
 
-train_predictions = dt_model.predict(X) # Predict the labels for the training data
-print(f"Training Accuracy: {accuracy_score(y, train_predictions):.2f}") # Print the training accuracy
+train_predictions = dt_model.predict(X_train) # Predict the labels for the training data
+val_predictions = dt_model.predict(X_val) # Predict the labels for the validation data
+
+print(f"Training Accuracy: {accuracy_score(y_train, train_predictions):.2f}") # Print the training accuracy
+print(f"Validation Accuracy: {accuracy_score(y_val, val_predictions):.2f}") # Print the validation accuracy
 
 plt.figure(figsize=(20, 10))
-plot_tree(dt_model, feature_names=X.columns, class_names=dt_model.classes_, filled=True)
+plot_tree(dt_model, feature_names=X_train.columns, class_names=dt_model.classes_, filled=True)
 plt.title("Decision Tree: Predicting Cancer Type from Tumor-Promoting Inflammation Genes")
 plt.show()
 # %%
